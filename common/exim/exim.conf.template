@@ -1,0 +1,192 @@
+exim_path = <%%EXIM_CONF_DIR%%>/exim4
+exim_user = <%%ARCH_CLI_SYSTEM_USER%%>
+daemon_smtp_ports = <%%EXIM_PORT%%>
+local_interfaces = <%%EXIM_INTERFACE%%>
+log_file_path = <%%EXIM_LOG_DIR%%>/%slog
+
+CONFDIR = <%%EXIM_CONF_DIR%%>
+
+domainlist local_domains = 
+
+domainlist relay_to_domains = 
+
+hostlist relay_from_hosts = 
+
+LOCAL_DELIVERY=mail_spool
+
+MAIN_LOG_SELECTOR = +tls_peerdn
+
+acl_smtp_mail = acl_check_sender
+acl_smtp_rcpt = acl_check_rcpt
+
+MAIN_HOST_LOOKUP = *
+host_lookup = MAIN_HOST_LOOKUP
+
+MAIN_IGNORE_BOUNCE_ERRORS_AFTER = 2d
+ignore_bounce_errors_after = MAIN_IGNORE_BOUNCE_ERRORS_AFTER
+
+MAIN_TIMEOUT_FROZEN_AFTER = 7d
+timeout_frozen_after = MAIN_TIMEOUT_FROZEN_AFTER
+
+MAIN_FREEZE_TELL = postmaster
+freeze_tell = MAIN_FREEZE_TELL
+
+SPOOLDIR = <%%EXIM_SPOOL_DIR%%>
+spool_directory = SPOOLDIR
+
+MAIN_TLS_ADVERTISE_HOSTS = *
+tls_advertise_hosts = MAIN_TLS_ADVERTISE_HOSTS
+
+MAIN_TLS_CERTKEY=
+tls_certificate = MAIN_TLS_CERTKEY
+
+MAIN_TLS_PRIVATEKEY =
+tls_privatekey = MAIN_TLS_PRIVATEKEY
+
+MAIN_TLS_VERIFY_CERTIFICATES = ${if exists{/etc/ssl/certs/ca-certificates.crt}\
+                                    {/etc/ssl/certs/ca-certificates.crt}\
+				    {/dev/null}}
+tls_verify_certificates = MAIN_TLS_VERIFY_CERTIFICATES
+
+MAIN_TLS_VERIFY_HOSTS = 
+tls_verify_hosts = MAIN_TLS_VERIFY_HOSTS
+
+MAIN_TLS_TRY_VERIFY_HOSTS = *
+tls_try_verify_hosts = MAIN_TLS_TRY_VERIFY_HOSTS
+
+log_selector = +outgoing_port +address_rewrite +received_recipients +received_sender \
+  +subject 
+
+ARCH_DOM_DATA_FILE = CONFDIR/archiving_domain_data
+
+RCPT_LIST = acl_c0
+INSERT_X_SPMILTER_FROM = acl_c1
+
+ARCH_DOMAIN_DATA_BY_DOMAIN = ${lookup{$domain}lsearch{ARCH_DOM_DATA_FILE}}
+
+IS_ARCH_DOMAIN = ${if ! eq{ARCH_DOMAIN_DATA_BY_DOMAIN}\
+                          {}\
+                        {true}\
+                        {false}}
+
+IS_SENDER_DOM_IN_ARCH = ${if ! eq{${lookup {$sender_address_domain}\
+                                           lsearch{ARCH_DOM_DATA_FILE}}}\
+                                 {}\
+                              {true}\
+                              {false}}
+
+IS_RCPT_IN_RCPT_TO_LIST = ${if match{$RCPT_LIST}\
+                                 {$local_part@$domain}\
+                                 {true}\
+                                 {false}}
+
+begin acl
+
+acl_check_sender:
+  warn
+    set RCPT_LIST = 
+    set INSERT_X_SPMILTER_FROM = false
+
+  warn
+    condition = IS_SENDER_DOM_IN_ARCH
+    set INSERT_X_SPMILTER_FROM = true
+
+  accept
+
+acl_check_rcpt:
+
+  warn
+    condition = IS_ARCH_DOMAIN
+    set RCPT_LIST = $local_part@$domain${if eq{$RCPT_LIST}{}{}{:$RCPT_LIST}}
+
+  accept
+
+acl_check_data:
+
+  accept
+
+begin routers
+
+no_arch_rcpt_router:
+  verify = false
+  address_test = false
+  debug_print = "R: no_arch_rcpt_router for $local_part@$domain"
+  condition = ${if eq{IS_RCPT_IN_RCPT_TO_LIST}{false}{true}{false}}
+  driver = redirect
+  data = :blackhole:
+  no_more
+
+spliter_router:
+  debug_print = "R: spliter_router for $RCPT_LIST list"
+  verify = false
+  driver = redirect
+  data = localy-rewrited-${extract{5}{:}{ARCH_DOMAIN_DATA_BY_DOMAIN}}@$domain
+  redirect_router = final_router
+
+final_router:
+  debug_print = "R: final_router for $local_part@$domain"
+  local_part_prefix = localy-rewrited-
+  driver = accept
+  transport = deliver_to_archiver
+
+begin transports
+
+deliver_to_archiver:
+  debug_print = "T: deliver_to_archiver for $local_part@$domain"
+  driver = smtp
+  headers_add = ${run{<%%EXIM_CONF_DIR%%>/header_generator \
+                         '${if eq{$INSERT_X_SPMILTER_FROM}\
+                                {true}\
+                               {add:$sender_address}\
+                               {noadd}}' \
+                         '$RCPT_LIST' \
+                         '$domain'}}
+  hosts_override = true
+  hosts = ${extract{3}{:}{ARCH_DOMAIN_DATA_BY_DOMAIN}}
+  port = ${extract{4}{:}{ARCH_DOMAIN_DATA_BY_DOMAIN}}
+  hosts_try_auth = *
+  max_rcpt = 1
+
+
+begin retry
+
+*                      *           F,2h,15m; G,16h,1h,1.5; F,4d,6h
+
+begin rewrite
+
+begin authenticators
+
+USERNAME = ${extract{1}{:}{ARCH_DOMAIN_DATA_BY_DOMAIN}}
+PASSWORD = ${extract{2}{:}{ARCH_DOMAIN_DATA_BY_DOMAIN}}
+
+cram_md5:
+  driver = cram_md5
+  public_name = CRAM-MD5
+  client_name = USERNAME
+  client_secret = PASSWORD
+
+plain:
+  driver = plaintext
+  public_name = PLAIN
+.ifndef AUTH_CLIENT_ALLOW_NOTLS_PASSWORDS
+  client_send = "<; ${if !eq{$tls_cipher}{}\
+                    {^USERNAME}\
+		     ^PASSWORD\
+		   }fail}"
+.else
+  client_send = "<; ^USERNAME\
+		    ^PASSWORD"
+.endif
+
+login:
+  driver = plaintext
+  public_name = LOGIN
+.ifndef AUTH_CLIENT_ALLOW_NOTLS_PASSWORDS
+  client_send = "<\
+                 ; USERNAME\
+		 ; PASSWORD"
+.else
+  client_send = "<\
+                 ; USERNAME\
+		 ; PASSWORD"
+.endif

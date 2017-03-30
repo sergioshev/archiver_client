@@ -1,0 +1,68 @@
+#!/bin/bash
+# Written by Miquel van Smoorenburg <miquels@drinkel.ow.org>.
+# Modified for Debian GNU/Linux by Ian Murdock <imurdock@gnu.ai.mit.edu>.
+# Modified for exim by Tim Cutts <timc@chiark.greenend.org.uk>
+# Modified for exim4 by Andreas Metzler <ametzler@downhill.at.eu.org>
+#                   and Marc Haber <mh+debian-packages@zugschlus.de>
+
+### BEGIN INIT INFO
+# Provides:          exim4
+# Required-Start:    $remote_fs $syslog $named $network $time
+# Required-Stop:     $remote_fs $syslog $named $network
+# Should-Start:      postgresql mysql clamav-daemon greylist spamassassin
+# Should-Stop:       postgresql mysql clamav-daemon greylist spamassassin
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: exim Mail Transport Agent
+# Description:       exim is a Mail Transport agent
+### END INIT INFO
+
+test -x "<%%EXIM_CONF_DIR%%>/exim4" || exit 0
+
+QUEUEINTERVAL='30m'
+DAEMON="<%%EXIM_CONF_DIR%%>/exim4"
+
+
+exim_pid()
+{
+  ps ax | grep -e '<%%EXIM_CONF_DIR%%>/exim[4]' | sed -e 's/^\s*\([1-9][0-9]\+\).*$/\1/' | egrep -v '^$'
+}
+
+start_exim()
+{
+  pid=$(exim_pid)
+  if [ "${pid}x" == "x" ] ; then
+    echo LD_LIBRARY_PATH="<%%EXIM_LIBS%%>" "$DAEMON" -C <%%EXIM_CONF_DIR%%>/exim.conf -bd -q${QUEUEINTERVAL}
+    LD_LIBRARY_PATH="<%%EXIM_LIBS%%>" "$DAEMON" -C <%%EXIM_CONF_DIR%%>/exim.conf -bd -q${QUEUEINTERVAL}
+  else
+    echo Exim is already running under $pid pid. Not started
+  fi
+}
+
+
+stop_exim()
+{
+  pid=$(exim_pid)
+  if [ "${pid}x" == "x" ] ; then
+    echo Exim is not running.
+  else
+    kill -TERM $pid
+  fi
+}
+
+case "$1" in
+  start)
+    echo "Starting MTA"
+    start_exim
+    ;;
+  stop)
+    echo "Stopping MTA"
+    stop_exim
+    ;;
+  *)
+    echo "Usage: $0 {start|stop}"
+    exit 1
+    ;;
+esac
+
+exit 0

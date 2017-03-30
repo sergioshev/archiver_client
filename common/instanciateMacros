@@ -1,0 +1,47 @@
+#!/bin/bash
+#
+# $Id: instanciateMacros,v 1.1 2012-02-14 12:03:34 sshevtsov Exp $
+#
+# Script que sustituye las macros encontradas en los archivos patrones por
+# sus valores instanciados, tomando como referencia el/los archivo(s)
+# patrones pasados como parรกmetro, y efectuando la sustituciรณn del texto
+# tomado por entrada estรกndar, y emitiendo el resultado por salida estรกndar.
+# Cada macro se espera encontrar delimitada por los separadores de inicio
+# y fin en el texto pasado.
+
+START='<%%'
+END='%%>'
+
+if [ "$1" == "-s" ] ; then
+  SHOW=1
+  shift
+fi
+
+if [ $# -lt 1 ] ; then
+  echo -e "\nUso: $0 [-s] <archivo patron> ...\n" 1>&2
+  exit 1
+fi
+
+SEDSCRIPT=$( cat "$@" | sed -ne 's/!/<@@exclamation@@>/g
+s/&/<@@ampersand@@>/g
+/^[[:space:]]*[^#]/{
+: ciclo
+s/\([^\]\)$/\1/
+t fin
+N
+b ciclo
+: fin
+s/\\/\\\\/g
+s/\
+/\\n/g
+s/^[[:space:]]*\([^[:space:]=]\+\)[[:space:]]*=[[:space:]]*\(.*\)$/s!'$START'\1'$END'!\2!g/p
+}'
+echo -e 's/<@@exclamation@@>/!/g\ns/<@@ampersand@@>/\&/g')
+
+if [ "$SHOW" == 1 ] ; then
+  echo "$SEDSCRIPT"
+  exit 0
+fi
+
+sed -e "$SEDSCRIPT"
+

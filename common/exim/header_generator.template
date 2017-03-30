@@ -1,0 +1,27 @@
+#!/bin/bash
+
+domain_data_file='<%%EXIM_CONF_DIR%%>/archiving_domain_data'
+from_data=$1
+rcpt_list=$2
+domain=$3
+to_list=''
+
+oifs=$IFS
+IFS=':'
+
+if echo "$from_data" | egrep -q '^add:' ; then 
+  echo X-SPMilter-Envelope-From: $(echo "$from_data" | cut -d : -f 2)
+fi
+
+for email in $rcpt_list ; do
+  edomain=$(echo $email | sed -e 's/.*@\([^@]\+\)$/\1/')
+  if [ "$edomain" == "$domain" ] ; then
+    to_list="$email${to_list:+,$to_list}"
+  fi
+done
+
+if [ "x$to_list" != "x" ] ; then
+  echo "X-Spamina-Deliver-To: $to_list"
+fi
+
+IFS=$oifs

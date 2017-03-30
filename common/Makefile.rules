@@ -1,0 +1,15 @@
+BASE_DIR ?= ..
+
+
+include $(BASE_DIR)/Makefile.defs
+
+% : %.template
+	$(BASE_DIR)/instanciateMacros $(BASE_DIR)/Makefile.defs < $< > $@
+
+
+.PHONY: all
+all : $(TEMPLATE_TARGETS)
+
+.PHONY: clean
+clean:
+	rm -f $(TEMPLATE_TARGETS) *~

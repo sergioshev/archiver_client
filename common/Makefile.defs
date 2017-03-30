@@ -1,0 +1,45 @@
+##
+#  Aca van la definiciones de las variables para la instalacion
+#  y generecion de macros
+
+# Usuario del sistema que es usado por el exim portable.
+# El servicio corre a nombre de el ademas de crear 
+# permisos en disco para los diferentes directorios
+# como /etc/arch_cli /var/spool/arch_cli /var/log/arch_cli etc.
+ARCH_CLI_SYSTEM_USER=archiver
+
+# Directorio de configuraciones exim y de mas datos relacionados
+# a la ejecucion de los procesos
+ARCH_DIR=/opt/arch_cli
+
+# Directorio spool de exim
+EXIM_SPOOL_DIR=/opt/arch_cli/var/spool/exim
+
+# Directorio para los logs de exim
+EXIM_LOG_DIR=/opt/arch_cli/var/log/exim
+
+# Configuraciones de exim
+EXIM_CONF_DIR=/opt/arch_cli/etc/exim
+
+# Puerto donde se pone a escuchar exim
+EXIM_PORT=26
+
+# Librerias de exim portable
+EXIM_LIBS=/opt/arch_cli/libs
+
+# Una interface en la que escucha exim.
+# Deberia normalmente estar en 127.0.0.1 para el reenvio
+# del correo, por razones de seguridad. Exim actua como un
+# buffer del correo y no asume estar conectado a internet,
+# no hace chequeos de ningun tipo ni validaciones de headers.
+EXIM_INTERFACE=127.0.0.1
+
+# Directorio donde se guarda el codigo fuente y 
+# el ejecutable del milter para postfix
+MILTER_DIR=/opt/arch_cli/milter
+
+# Archivo socket de milter
+MILTER_SOCKET=/var/spool/postfix/var/run/mailf.sock
+
+# el propietario para el socket usado por postfix
+MILTER_USER=postfix

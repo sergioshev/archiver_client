@@ -1,0 +1,32 @@
+#!/bin/bash
+
+
+start_arch()
+{
+  <%%EXIM_CONF_DIR%%>/exim-init start
+  <%%MILTER_DIR%%>/milter-init start
+}
+
+
+stop_arch()
+{
+  <%%EXIM_CONF_DIR%%>/exim-init stop
+  <%%MILTER_DIR%%>/milter-init stop
+}
+
+case "$1" in
+  start)
+    echo "Starting arch_cli"
+    start_arch
+    ;;
+  stop)
+    echo "Stopping arch_cli"
+    stop_arch
+    ;;
+  *)
+    echo "Usage: $0 {start|stop}"
+    exit 1
+    ;;
+esac
+
+exit 0

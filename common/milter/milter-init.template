@@ -1,0 +1,53 @@
+#!/bin/bash
+
+test -x "<%%MILTER_DIR%%>/mailforward" || exit 0
+
+DAEMON="<%%MILTER_DIR%%>/mailforward"
+
+
+milter_pid()
+{
+  ps ax | grep -e '<%%MILTER_DIR%%>/mailforwa[r][d]' | sed -e 's/^\s*\([1-9][0-9]\+\).*$/\1/' | egrep -v '^$'
+}
+
+start_milter()
+{
+  pid=$(milter_pid)
+  if [ "${pid}x" == "x" ] ; then
+    rm -f "<%%MILTER_SOCKET%%>"
+    "$DAEMON" -S "<%%MILTER_SOCKET%%>" -p <%%EXIM_PORT%%> -h <%%EXIM_INTERFACE%%> &
+    sleep 4
+    chown <%%MILTER_USER%%> "<%%MILTER_SOCKET%%>"
+  else
+    echo Milter is already running under $pid pid. Not started
+  fi
+}
+
+
+stop_milter()
+{
+  pid=$(milter_pid)
+  if [ "${pid}x" == "x" ] ; then
+    echo Milter is not running.
+  else
+    kill -TERM $pid
+    sleep 4
+  fi
+}
+
+case "$1" in
+  start)
+    echo "Starting Milter"
+    start_milter
+    ;;
+  stop)
+    echo "Stopping Milter"
+    stop_milter
+    ;;
+  *)
+    echo "Usage: $0 {start|stop}"
+    exit 1
+    ;;
+esac
+
+exit 0
